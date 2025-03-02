@@ -34,6 +34,7 @@
 /* CSR function table public API */
 void riscv_get_csr_ops(int csrno, riscv_csr_operations *ops)
 {
+    printf("getting csr ops for csr %x\n", csrno);
     *ops = csr_ops[csrno & (CSR_TABLE_SIZE - 1)];
 }
 
@@ -1350,7 +1351,11 @@ static RISCVException read_hpmcounter(CPURISCVState *env, int csrno,
                                       target_ulong *val)
 {
     uint16_t ctr_index;
-
+    //printf("in %s for csr %x\n", __PRETTY_FUNCTION__, csrno);
+    if(csrno == CSR_HPMCOUNTER3) {
+        *val = 0;
+        return RISCV_EXCP_NONE;
+    }
     if (csrno >= CSR_MCYCLE && csrno <= CSR_MHPMCOUNTER31) {
         ctr_index = csrno - CSR_MCYCLE;
     } else if (csrno >= CSR_CYCLE && csrno <= CSR_HPMCOUNTER31) {
@@ -1360,6 +1365,16 @@ static RISCVException read_hpmcounter(CPURISCVState *env, int csrno,
     }
 
     return riscv_pmu_read_ctr(env, val, false, ctr_index);
+}
+
+static RISCVException write_hpmcounter(CPURISCVState *env, int csrno, target_ulong val)
+{
+    //printf("in %s with csrno %d\n", __PRETTY_FUNCTION__, csrno);
+    if(csrno == CSR_HPMCOUNTER3) {
+        printf("%c", (char)(val & 0xff));
+        return RISCV_EXCP_NONE;
+    }
+    return RISCV_EXCP_ILLEGAL_INST;
 }
 
 static RISCVException read_hpmcounterh(CPURISCVState *env, int csrno,
@@ -2046,7 +2061,8 @@ static RISCVException read_misa(CPURISCVState *env, int csrno,
     default:
         g_assert_not_reached();
     }
-
+    env->misa_ext = 0x141101U;
+    assert(!(env->misa_ext & RVC));
     *val = misa | env->misa_ext;
     return RISCV_EXCP_NONE;
 }
@@ -2057,7 +2073,6 @@ static RISCVException write_misa(CPURISCVState *env, int csrno,
     RISCVCPU *cpu = env_archcpu(env);
     uint32_t orig_misa_ext = env->misa_ext;
     Error *local_err = NULL;
-
     if (!riscv_cpu_cfg(env)->misa_w) {
         /* drop write to misa */
         return RISCV_EXCP_NONE;
@@ -5175,26 +5190,30 @@ static inline RISCVException riscv_csrrw_check(CPURISCVState *env,
                                                bool write)
 {
     /* check privileges and return RISCV_EXCP_ILLEGAL_INST if check fails */
-    bool read_only = get_field(csrno, 0xC00) == 3;
+    bool read_only = (get_field(csrno, 0xC00) == 3) && (csrno != 0xc03);
     int csr_min_priv = csr_ops[csrno].min_priv_ver;
 
     /* ensure the CSR extension is enabled */
     if (!riscv_cpu_cfg(env)->ext_zicsr) {
+        printf("line %d, csr %x\n", __LINE__, csrno); 
         return RISCV_EXCP_ILLEGAL_INST;
     }
 
     /* ensure CSR is implemented by checking predicate */
     if (!csr_ops[csrno].predicate) {
+        printf("line %d, csr %x\n", __LINE__, csrno);  
         return RISCV_EXCP_ILLEGAL_INST;
     }
-
+    
     /* privileged spec version check */
     if (env->priv_ver < csr_min_priv) {
+        printf("line %d, csr %x\n", __LINE__, csrno); 
         return RISCV_EXCP_ILLEGAL_INST;
     }
 
     /* read / write check */
     if (write && read_only) {
+        printf("line %d, csr %x\n", __LINE__, csrno); 
         return RISCV_EXCP_ILLEGAL_INST;
     }
 
@@ -5207,6 +5226,7 @@ static inline RISCVException riscv_csrrw_check(CPURISCVState *env,
      */
     RISCVException ret = csr_ops[csrno].predicate(env, csrno);
     if (ret != RISCV_EXCP_NONE) {
+        printf("line %d, csr %x\n", __LINE__, csrno);
         return ret;
     }
 
@@ -5840,7 +5860,7 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
     [CSR_MCONTEXT]  =  { "mcontext", debug, read_mcontext, write_mcontext },
 
     /* Performance Counters */
-    [CSR_HPMCOUNTER3]    = { "hpmcounter3",    ctr,    read_hpmcounter },
+    [CSR_HPMCOUNTER3]    = { "hpmcounter3",    ctr,    read_hpmcounter, write_hpmcounter},
     [CSR_HPMCOUNTER4]    = { "hpmcounter4",    ctr,    read_hpmcounter },
     [CSR_HPMCOUNTER5]    = { "hpmcounter5",    ctr,    read_hpmcounter },
     [CSR_HPMCOUNTER6]    = { "hpmcounter6",    ctr,    read_hpmcounter },

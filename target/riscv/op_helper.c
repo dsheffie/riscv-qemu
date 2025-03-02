@@ -378,6 +378,8 @@ static target_ulong ssdbltrp_mxret(CPURISCVState *env, target_ulong mstatus,
 target_ulong helper_mret(CPURISCVState *env)
 {
     target_ulong retpc = env->mepc;
+    //printf("mret to %lx\n", retpc);
+    //exit(-1);
     uint64_t mstatus = env->mstatus;
     target_ulong prev_priv = get_field(mstatus, MSTATUS_MPP);
 

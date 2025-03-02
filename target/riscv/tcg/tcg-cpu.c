@@ -833,6 +833,8 @@ static void cpu_enable_implied_rule(RISCVCPU *cpu,
     enabled = test_bit(cpu->env.mhartid, rule->enabled);
 #endif
 
+    assert(!(env->misa_ext & RVC));
+
     if (!enabled) {
         /* Enable the implied MISAs. */
         if (rule->implied_misa_exts) {
@@ -846,7 +848,6 @@ static void cpu_enable_implied_rule(RISCVCPU *cpu,
                         !(env->misa_ext & misa_bits[i])) {
                         continue;
                     }
-
                     riscv_cpu_set_misa_ext(env, env->misa_ext | misa_bits[i]);
                     ir = g_hash_table_lookup(misa_ext_implied_rules,
                                              GUINT_TO_POINTER(misa_bits[i]));
@@ -914,6 +915,7 @@ static void riscv_cpu_enable_implied_rules(RISCVCPU *cpu)
     RISCVCPUImpliedExtsRule *rule;
     int i;
 
+    assert(!((&cpu->env)->misa_ext & RVC));
     /* Enable the implied extensions for Zc. */
     cpu_enable_zc_implied_rules(cpu);
 
@@ -936,7 +938,8 @@ void riscv_tcg_cpu_finalize_features(RISCVCPU *cpu, Error **errp)
 {
     CPURISCVState *env = &cpu->env;
     Error *local_err = NULL;
-
+    /* dsheffie - this is hack to disable RV features I don't support in RTL */
+    env->misa_ext &= (~(RVC|RVF|RVD|RVH));
     riscv_cpu_init_implied_exts_rules();
     riscv_cpu_enable_implied_rules(cpu);
 

@@ -490,7 +490,7 @@ static void rv64_base_cpu_init(Object *obj)
     /* Set latest version of privileged specification */
     env->priv_ver = PRIV_VERSION_LATEST;
 #ifndef CONFIG_USER_ONLY
-    set_satp_mode_max_supported(RISCV_CPU(obj), VM_1_10_SV57);
+    set_satp_mode_max_supported(RISCV_CPU(obj), VM_1_10_SV39);
 #endif
 }
 
@@ -1249,7 +1249,7 @@ static void riscv_cpu_satp_mode_finalize(RISCVCPU *cpu, Error **errp)
 void riscv_cpu_finalize_features(RISCVCPU *cpu, Error **errp)
 {
     Error *local_err = NULL;
-
+    //assert(!((&cpu->env)->misa_ext & RVC));
 #ifndef CONFIG_USER_ONLY
     riscv_cpu_satp_mode_finalize(cpu, &local_err);
     if (local_err != NULL) {
@@ -1280,13 +1280,14 @@ static void riscv_cpu_realize(DeviceState *dev, Error **errp)
     RISCVCPU *cpu = RISCV_CPU(dev);
     RISCVCPUClass *mcc = RISCV_CPU_GET_CLASS(dev);
     Error *local_err = NULL;
-
+    //assert(!((&cpu->env)->misa_ext & RVC));
+    
     cpu_exec_realizefn(cs, &local_err);
     if (local_err != NULL) {
         error_propagate(errp, local_err);
         return;
     }
-
+    //assert(!((&cpu->env)->misa_ext & RVC));
     riscv_cpu_finalize_features(cpu, &local_err);
     if (local_err != NULL) {
         error_propagate(errp, local_err);
@@ -1625,7 +1626,7 @@ const RISCVCPUMultiExtConfig riscv_cpu_extensions[] = {
     MULTI_EXT_CFG_BOOL("zvfbfwma", ext_zvfbfwma, false),
     MULTI_EXT_CFG_BOOL("zvfh", ext_zvfh, false),
     MULTI_EXT_CFG_BOOL("zvfhmin", ext_zvfhmin, false),
-    MULTI_EXT_CFG_BOOL("sstc", ext_sstc, true),
+    MULTI_EXT_CFG_BOOL("sstc", ext_sstc, false),
     MULTI_EXT_CFG_BOOL("ssnpm", ext_ssnpm, false),
     MULTI_EXT_CFG_BOOL("sspm", ext_sspm, false),
     MULTI_EXT_CFG_BOOL("supm", ext_supm, false),
@@ -1642,7 +1643,7 @@ const RISCVCPUMultiExtConfig riscv_cpu_extensions[] = {
     MULTI_EXT_CFG_BOOL("svade", ext_svade, false),
     MULTI_EXT_CFG_BOOL("svadu", ext_svadu, true),
     MULTI_EXT_CFG_BOOL("svinval", ext_svinval, false),
-    MULTI_EXT_CFG_BOOL("svnapot", ext_svnapot, false),
+    MULTI_EXT_CFG_BOOL("svnapot", ext_svnapot, true),
     MULTI_EXT_CFG_BOOL("svpbmt", ext_svpbmt, false),
     MULTI_EXT_CFG_BOOL("svvptc", ext_svvptc, true),
 
